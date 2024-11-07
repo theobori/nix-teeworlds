@@ -20,6 +20,8 @@ let
     getExe'
     isInt
     nameValuePair
+    concatStrings
+    concatStringsSep
     ;
 
   cfg = config.services.nix-teeworlds;
@@ -132,7 +134,7 @@ in
         name: server:
         nameValuePair "nix-teeworlds-${name}" (
           let
-            serverConfig' = pkgs.writeText "autoexec.cfg" ''
+            serverConfig' = ''
               # Server settings
               sv_port ${toString server.port}
               sv_register ${bool server.register}
@@ -193,12 +195,28 @@ in
               ${optionalSetting "sv_external_port" (
                 if server.externalPort == 0 then null else toString server.externalPort
               )}
-
-              ${lib.optionalString (server.extraConfig != null) server.extraConfig}
             '';
 
-            serverConfig =
-              if (server.useQuickConfig && server.quickConfig != "") then server.quickConfig else serverConfig';
+            serverConfig = pkgs.writeText "nix-teeworlds-${name}-configuration" (
+              concatStringsSep "\n" [
+                # Pick the quick configuration if needed
+                (if (server.useQuickConfig && server.quickConfig != "") then server.quickConfig else serverConfig')
+
+                # Concat the extra configuration
+                (optionalString (server.extraConfig != null) server.extraConfig)
+
+                # Concat the votes
+                (concatStringsSep "\n" (
+                  mapAttrsToList (
+                    name: vote:
+                    let
+                      commands = map (command: "${if command == [ ] then "say ${name}" else command};") vote.commands;
+                    in
+                    "add_vote \"${name}\" \"${concatStrings commands}\""
+                  ) server.votes
+                ))
+              ]
+            );
           in
           {
             description = "Teeworlds server ${name} managed by nix-teeworlds.";
@@ -216,7 +234,7 @@ in
                   name = "nix-teeworlds-${name}-start-pre";
                   text = ''
                     ln -sf ${server.dataDir} data
-                    ln -sf ${serverConfig} autoexec.cfg
+                    ln -sf ${serverConfig} ${server.cfgName}
                   '';
                 }
               );
@@ -229,13 +247,13 @@ in
                     else
                       (getExe server.package);
                 in
-                "${binaryPath} -f autoexec.cfg";
+                "${binaryPath} -f ${server.cfgName}";
 
               ExecStopPost = getExe (
                 pkgs.writeShellApplication {
                   name = "nix-teeworlds-${name}-stop-post";
                   text = ''
-                    rm data autoexec.cfg
+                    rm data ${server.cfgName}
                   '';
                 }
               );

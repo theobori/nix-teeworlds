@@ -13,13 +13,18 @@ let
     mkPackageOption
     ;
 
-  mkSubmodule =
-    path: description:
+  mkSubmodule' =
+    isAttrsOf: path: description:
+    let
+      type = if isAttrsOf then (types.attrsOf (mkSubmoduleFile path)) else (mkSubmoduleFile path);
+    in
     mkOption {
-      type = mkSubmoduleFile path;
       default = { };
-      inherit description;
+      inherit type description;
     };
+
+  mkSubmodule = path: description: mkSubmodule' false path description;
+  mkAttrsSubmodule = path: description: mkSubmodule' true path description;
 in
 {
   enable = mkEnableOption "Enable this Teeworlds server.";
@@ -131,7 +136,7 @@ in
 
   maxClientsPerIp = mkOption {
     type = types.int;
-    default = 12;
+    default = 4;
     description = "Maximum number of clients with the same IP that can connect to the server.";
   };
 
@@ -159,9 +164,11 @@ in
     description = "Whether to enable chat spam protection.";
   };
 
+  # Submodules
   game = mkSubmodule ./game.nix "Game configuration.";
   externalConsole = mkSubmodule ./external-console.nix "External console configuration.";
   remoteConsole = mkSubmodule ./remote-console.nix "Remote console console configuration.";
+  votes = mkAttrsSubmodule ./vote.nix "Server votes configuration.";
 
   extraConfig = mkOption {
     type = types.nullOr types.lines;
@@ -172,5 +179,11 @@ in
     type = types.bool;
     default = true;
     description = "Whether to enable this server systemd service unit.";
+  };
+
+  cfgName = mkOption {
+    type = types.str;
+    default = "server.cfg";
+    description = "Server configuration file name.";
   };
 }
