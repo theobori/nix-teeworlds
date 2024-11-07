@@ -245,6 +245,16 @@ let
           '';
         };
 
+        quickConfig = mkOption {
+          type = types.lines;
+          default = "";
+          description = ''
+            Custom configuration to use instead of the basics one.
+          '';
+        };
+
+        useQuickConfig = mkEnableOption "Enable quick configuration.";
+
         register = mkOption {
           type = types.bool;
           default = false;
@@ -534,6 +544,9 @@ in
 
             ${lib.optionalString (server.extraConfig != null) server.extraConfig}
           '';
+
+          serverConfig' =
+            if (server.useQuickConfig && server.quickConfig != "") then server.quickConfig else serverConfig;
         in
         {
           description = "Teeworlds server ${name} managed by nix-teeworlds.";
@@ -551,7 +564,7 @@ in
                 name = "nix-teeworlds-${name}-start-pre";
                 text = ''
                   ln -sf ${server.dataDir} data
-                  ln -sf ${serverConfig} autoexec.cfg
+                  ln -sf ${serverConfig'} autoexec.cfg
                 '';
               }
             );
