@@ -69,7 +69,7 @@ in
       default = "nix-teeworlds";
     };
 
-    servers = mkOption { type = types.attrsOf (mkSubmoduleFile ./server.nix); };
+    servers = mkOption { type = types.attrsOf (mkSubmoduleFile ./server/server.nix); };
   };
 
   config =
@@ -77,29 +77,31 @@ in
       servers = filterAttrs (_: server: server.enable) cfg.servers;
 
       mkPorts =
-        c: f:
+        force: f:
         builtins.concatLists (
           mapAttrsToList (
             _: server:
             let
               ret = f server;
             in
-            optional ((isInt ret) && (server.openFirewall or c)) ret
+            optional ((isInt ret) && (server.openFirewall or force)) ret
           ) servers
         );
 
       # TCP ports
       mkTCPPorts =
-        c:
-        mkPorts c (
+        force:
+        mkPorts force (
           server:
-          (optional (server.externalPort != 0) server.externalPort)
-          ++ (optional (
-            server.externalConsole != null && server.externalConsole.enable
-          ) server.externalConsole.port)
+          let
+            inherit (server.settings) externalPort;
+            inherit (server) externalConsole;
+          in
+          (optional (externalPort != 0) externalPort)
+          ++ (optional (externalConsole != null && externalConsole.enable) externalConsole.port)
         );
       # UDP ports
-      mkUDPPorts = c: mkPorts c (server: server.port);
+      mkUDPPorts = force: mkPorts force (server: server.settings.port);
       # All port
       ports = (mkTCPPorts true) ++ (mkUDPPorts true);
     in
@@ -136,22 +138,24 @@ in
           let
             serverConfig' = ''
               # Server settings
-              sv_port ${toString server.port}
-              sv_register ${bool server.register}
-              sv_name ${server.name}
-              ${optionalSetting "sv_motd" server.motd}
-              ${optionalSetting "password" server.password}
-              ${optionalSetting "sv_rcon_password" server.remoteConsole.rconPassword}
-
-              ${optionalSetting "bindaddr" server.bindAddress}
-              ${optionalSetting "sv_hostname" server.hostname}
-              sv_high_bandwidth ${bool server.highBandwidth}
-              sv_inactivekick ${toString server.inactiveKick}
-              sv_inactivekick_spec ${bool server.inactiveKickSpec}
-              sv_inactivekick_time ${toString server.inactiveKickTime}
-              sv_max_clients ${toString server.maxClients}
-              sv_max_clients_per_ip ${toString server.maxClientsPerIp}
-              sv_spamprotection ${bool server.enableSpamProtection}
+              sv_port ${toString server.settings.port}
+              sv_register ${bool server.settings.register}
+              sv_name ${server.settings.name}
+              ${optionalSetting "sv_motd" server.settings.motd}
+              ${optionalSetting "password" server.settings.password}
+              ${optionalSetting "sv_map_download_speed" (toString server.settings.mapDownloadSpeed)}
+              ${optionalSetting "sv_external_port" (
+                if server.settings.externalPort == 0 then null else toString server.settings.externalPort
+              )}
+              ${optionalSetting "bindaddr" server.settings.bindAddress}
+              ${optionalSetting "sv_hostname" server.settings.hostname}
+              sv_high_bandwidth ${bool server.settings.highBandwidth}
+              sv_inactivekick ${toString server.settings.inactiveKick}
+              sv_inactivekick_spec ${bool server.settings.inactiveKickSpec}
+              sv_inactivekick_time ${toString server.settings.inactiveKickTime}
+              sv_max_clients ${toString server.settings.maxClients}
+              sv_max_clients_per_ip ${toString server.settings.maxClientsPerIp}
+              sv_spamprotection ${bool server.settings.enableSpamProtection}
 
               # Game settings
               sv_gametype ${server.game.gameType}
@@ -185,38 +189,43 @@ in
               ''}
 
               # Remote console settings
+              ${optionalSetting "sv_rcon_password" server.remoteConsole.rconPassword}
               sv_rcon_bantime ${toString server.remoteConsole.rconBanTime}
               sv_rcon_max_tries ${toString server.remoteConsole.rconMaxTries}
               ${optionalSetting "sv_rcon_mod_password" server.remoteConsole.rconModPassword}
               ${optionalSetting "sv_rcon_password" server.remoteConsole.rconPassword}
-
-              # Additional settings
-              sv_map_download_speed ${toString server.mapDownloadSpeed}
-              ${optionalSetting "sv_external_port" (
-                if server.externalPort == 0 then null else toString server.externalPort
               )}
             '';
 
-            serverConfig = pkgs.writeText "nix-teeworlds-${name}-configuration" (
-              concatStringsSep "\n" [
-                # Pick the quick configuration if needed
-                (if (server.useQuickConfig && server.quickConfig != "") then server.quickConfig else serverConfig')
-
-                # Concat the extra configuration
-                (optionalString (server.extraConfig != null) server.extraConfig)
-
-                # Concat the votes
-                (concatStringsSep "\n" (
-                  mapAttrsToList (
-                    name: vote:
-                    let
-                      commands = map (command: "${if command == [ ] then "say ${name}" else command};") vote.commands;
-                    in
-                    "add_vote \"${name}\" \"${concatStrings commands}\""
-                  ) server.votes
-                ))
-              ]
+            votes = (
+              concatStringsSep "\n" (
+                mapAttrsToList (
+                  name: vote:
+                  let
+                    commands' = concatStrings (map (command: "${command};") vote.commands);
+                    commands = if commands' == "" then "say ${name}" else commands';
+                  in
+                  "add_vote \"${name}\" \"${commands}\""
+                ) server.votes
+              )
             );
+
+            serverConfig =
+              let
+                inherit (server) useQuickConfig quickConfig extraConfig;
+              in
+              pkgs.writeText "nix-teeworlds-${name}-configuration" (
+                concatStringsSep "\n" [
+                  # Pick the quick configuration if needed
+                  (if (useQuickConfig && quickConfig != "") then quickConfig else serverConfig')
+
+                  # Concat the extra configuration
+                  (optionalString (extraConfig != null) extraConfig)
+
+                  # Concat the votes
+                  votes
+                ]
+              );
           in
           {
             description = "Teeworlds server ${name} managed by nix-teeworlds.";
@@ -233,7 +242,7 @@ in
                 pkgs.writeShellApplication {
                   name = "nix-teeworlds-${name}-start-pre";
                   text = ''
-                    ln -sf ${server.dataDir} data
+                    ${optionalString (server.dataDir != null) "ln -sf ${server.dataDir} data"}
                     ln -sf ${serverConfig} ${server.cfgName}
                   '';
                 }
@@ -276,7 +285,6 @@ in
               ];
               RestrictNamespaces = true;
               SystemCallArchitectures = "native";
-
               CapabilityBoundingSet = [ "" ];
               DeviceAllow = [ "" ];
               LockPersonality = true;

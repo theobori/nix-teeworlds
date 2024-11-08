@@ -35,25 +35,24 @@ stdenv.mkDerivation (finalAttrs: {
 
   postPatch = ''
     substituteInPlace src/engine/shared/storage.cpp \
-      --replace-fail /usr/ $out/
+      --replace-fail /usr/ $out/ \
+      --replace-fail teeworlds/ fng/
 
     substituteInPlace src/game/server/gamecontext.cpp \
       --replace-fail intptr_t "int"
 
-    rm -rf 'src/engine/external/wavpack/'
-    rm -rf 'src/engine/external/zlib/'
+    rm -rf src/engine/external/wavpack
+    rm -rf src/engine/external/zlib
   '';
 
-  cmakeFlags = [
-    "-DAUTOUPDATE=OFF"
-    "-DCLIENT=OFF"
-  ];
+  cmakeFlags = [ "-DCLIENT=OFF" ];
 
   meta = {
-    description = "";
-    homepage = "";
+    description = "FNG mod for teeworlds, that advances the original FNG idea by golden spikes and other features";
+    homepage = "https://github.com/Jupeyy/teeworlds-fng2-mod/tree/fng_06";
     license = lib.licenses.asl20;
     maintainers = with lib.maintainers; [ theobori ];
     mainProgram = "fng2_srv";
+    platforms = lib.platforms.unix;
   };
 })
