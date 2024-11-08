@@ -33,6 +33,10 @@ in
   binaryName = mkOption {
     type = types.nullOr types.str;
     default = null;
+    description = ''
+      Custom binary name to use for the server executable.
+      If null, uses the default from the package.
+    '';
   };
 
   dataDir = mkOption {
@@ -44,6 +48,10 @@ in
       ]
     );
     default = null;
+    description = ''
+      Custom data directory path for the server.
+      If null, uses the default from the package.
+    '';
   };
 
   openFirewall = mkOption {
@@ -58,7 +66,8 @@ in
     type = types.lines;
     default = "";
     description = ''
-      Custom configuration to use instead of the basics one.
+      Custom configuration to use instead of the basic one.
+      Only used when useQuickConfig is enabled.
     '';
   };
 
@@ -67,6 +76,9 @@ in
   extraConfig = mkOption {
     type = types.nullOr types.lines;
     default = null;
+    description = ''
+      Additional configuration lines to append to the server configuration.
+    '';
   };
 
   enableService = mkOption {

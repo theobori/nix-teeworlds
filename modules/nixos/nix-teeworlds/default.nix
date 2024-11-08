@@ -49,6 +49,9 @@ in
     rootDir = mkOption {
       type = types.str;
       default = "/srv/nix-teeworlds";
+      description = ''
+        Directory where all server-related files will be stored.
+      '';
     };
 
     openFirewall = mkOption {
@@ -62,14 +65,26 @@ in
     user = mkOption {
       type = types.str;
       default = "nix-teeworlds";
+      description = ''
+        User under which the Teeworlds servers will run.
+      '';
     };
 
     group = mkOption {
       type = types.str;
       default = "nix-teeworlds";
+      description = ''
+        Group under which the Teeworlds servers will run.
+      '';
     };
 
-    servers = mkOption { type = types.attrsOf (mkSubmoduleFile ./server/server.nix); };
+    servers = mkOption {
+      type = types.attrsOf (mkSubmoduleFile ./server/server.nix);
+      description = ''
+        Attribute set of Teeworlds server configurations.
+        Each attribute defines a separate server instance with its own settings.
+      '';
+    };
   };
 
   config =
