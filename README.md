@@ -47,6 +47,7 @@ The following packages are available.
 - `fixed-ddnet-server`
 - `fng2-server`
 - `infclassr-server`
+- `ddnet-insta-server`
 
 ## Examples
 

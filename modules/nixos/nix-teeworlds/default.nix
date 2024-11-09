@@ -13,12 +13,12 @@ let
     filterAttrs
     mapAttrsToList
     optional
+    optionals
     unique
     mapAttrs'
     optionalString
     getExe
     getExe'
-    isInt
     nameValuePair
     concatStrings
     concatStringsSep
@@ -99,7 +99,7 @@ in
             let
               ret = f server;
             in
-            optional ((isInt ret) && (server.openFirewall or force)) ret
+            optionals (ret != [ ] && (server.openFirewall or force)) ret
           ) servers
         );
 
@@ -113,10 +113,10 @@ in
             inherit (server) externalConsole;
           in
           (optional (externalPort != 0) externalPort)
-          ++ (optional (externalConsole != null && externalConsole.enable) externalConsole.port)
+          ++ (optional externalConsole.enable externalConsole.port)
         );
       # UDP ports
-      mkUDPPorts = force: mkPorts force (server: server.settings.port);
+      mkUDPPorts = force: mkPorts force (server: [ server.settings.port ]);
       # All port
       ports = (mkTCPPorts true) ++ (mkUDPPorts true);
     in
@@ -212,17 +212,15 @@ in
               )}
             '';
 
-            votes = (
-              concatStringsSep "\n" (
-                mapAttrsToList (
-                  name: vote:
-                  let
-                    commands' = concatStrings (map (command: "${command};") vote.commands);
-                    commands = if commands' == "" then "say ${name}" else commands';
-                  in
-                  "add_vote \"${name}\" \"${commands}\""
-                ) server.votes
-              )
+            votes = concatStringsSep "\n" (
+              mapAttrsToList (
+                name: vote:
+                let
+                  commands' = concatStrings (map (command: "${command};") vote.commands);
+                  commands = if commands' == "" then "say ${name}" else commands';
+                in
+                "add_vote \"${name}\" \"${commands}\""
+              ) server.votes
             );
 
             serverConfig =

@@ -1,15 +1,4 @@
-# Nix Teeworlds Examples
-
-Before using the examples below, don't forget to follow the Nix Teeworlds installation steps in [README.md](/README.md).
-
-You can also consult the [default.nix](./default.nix) file.
-
-## A Minimal usage
-
-Here's a simple example for a Teeworlds 0.7 vanilla CTF server.
-
-```nix
-{ ... }:
+{ pkgs, ... }:
 {
   services.nix-teeworlds = {
     enable = true;
@@ -29,23 +18,22 @@ Here's a simple example for a Teeworlds 0.7 vanilla CTF server.
           map = "ctf1";
         };
       };
-    };
-  };
-}
-```
 
-## A more complex usage
+      my-ddrace = {
+        enable = true;
+        package = pkgs.fixed-ddnet-server;
 
-Here's a slightly more complex example for a Teeworlds FNG server.
+        settings = {
+          name = "My DDRace server from NixOS";
+          port = 8304;
+        };
 
-```nix
-{ pkgs, ... }:
-{
-  services.nix-teeworlds = {
-    enable = true;
-    openFirewall = true;
+        game = {
+          gameType = "ddrace";
+          map = "Tutorial";
+        };
+      };
 
-    servers = {
       my-fng = {
         enable = true;
         package = pkgs.fng2-server;
@@ -91,7 +79,21 @@ Here's a slightly more complex example for a Teeworlds FNG server.
           };
         };
       };
+
+      my-infclass = {
+        enable = true;
+        package = pkgs.infclassr-server;
+
+        settings = {
+          name = "My infection server from NixOS";
+          port = 8306;
+        };
+
+        game = {
+          gameType = "InfClass";
+          map = "infc_bamboo2";
+        };
+      };
     };
   };
 }
-```
